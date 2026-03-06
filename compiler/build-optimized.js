@@ -49,6 +49,32 @@ class OptimizedBuilder {
         throw new Error('Failed to build flow');
       }
 
+      // Build routing model based on screen navigation actions BEFORE validation
+      if (builtFlow.data_api_version === "3.0") {
+        const routingModel = {};
+        
+        builtFlow.screens.forEach(screen => {
+          const navigableScreens = [];
+          
+          // Check footer navigation actions
+          screen.layout?.children?.forEach(component => {
+            if (component.type === "Footer" && component["on-click-action"]) {
+              const action = component["on-click-action"];
+              if (action.name === "navigate" && action.next && action.next.name) {
+                navigableScreens.push(action.next.name);
+              }
+            }
+          });
+          
+          if (navigableScreens.length > 0) {
+            routingModel[screen.id] = navigableScreens;
+          }
+        });
+        
+        builtFlow.routing_model = routingModel;
+        this.log(`Added routing_model with connections: ${JSON.stringify(routingModel)}`, 'info');
+      }
+
       // Validate before saving
       const validator = new Validator();
       const validation = validator.validateFlow(builtFlow);
@@ -89,7 +115,12 @@ class OptimizedBuilder {
           { id: "investment", title: "Investment Services" }
         ]
       })
-      .footer("Continue", "navigate", "NEXT_SCREEN");
+      .footer("Continue", "navigate", "CONFIRMATION")
+      
+      // Add terminal screen for compliance
+      .screen("CONFIRMATION", { title: "Confirmation", terminal: true })
+      .add({ type: "TextBody", text: "Thank you for your selection. Your request has been submitted." })
+      .footer("Complete", "complete");
 
     return flow;
   }

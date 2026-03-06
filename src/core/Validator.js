@@ -22,7 +22,11 @@ class Validator {
       required: ["version", "data_api_version", "screens"],
       properties: {
         version: { type: "string", pattern: "^\\d+\\.\\d+$" },
-        data_api_version: { type: "string", pattern: "^\\d+\\.\\d+$" },
+        data_api_version: { 
+          type: "string", 
+          pattern: "^\\d+\\.\\d+$",
+          // routing_model is required for data_api_version 3.0
+        },
         screens: {
           type: "array",
           minItems: 1,
@@ -48,6 +52,15 @@ class Validator {
           }
         },
         routing_model: { type: "object" }
+      },
+      // routing_model is required when data_api_version is 3.0
+      if: {
+        properties: {
+          data_api_version: { const: "3.0" }
+        }
+      },
+      then: {
+        required: ["routing_model"]
       }
     };
 
@@ -70,6 +83,19 @@ class Validator {
       errors.push('Flow screens array is required');
     } else if (flow.screens.length === 0) {
       errors.push('Flow must have at least one screen');
+    }
+
+    // At least one terminal screen is required
+    if (flow.screens && flow.screens.length > 0) {
+      const terminalScreens = flow.screens.filter(screen => screen.terminal === true);
+      if (terminalScreens.length === 0) {
+        errors.push('At least one terminal screen is required');
+      }
+    }
+
+    // routing_model is required for data_api_version 3.0
+    if (flow.data_api_version === "3.0" && !flow.routing_model) {
+      errors.push('routing_model is required for data_api_version 3.0');
     }
 
     // AJV validation if available
@@ -146,14 +172,53 @@ class Validator {
     if (flow.routing_model && flow.screens) {
       const screenIds = flow.screens.map(s => s.id);
       
-      Object.entries(flow.routing_model).forEach(([condition, routes]) => {
-        if (routes.true && !screenIds.includes(routes.true)) {
-          errors.push(`Routing condition "${condition}": Screen "${routes.true}" not found`);
+      // Check if all screens in routing_model exist
+      Object.entries(flow.routing_model).forEach(([sourceScreen, targetScreens]) => {
+        if (!screenIds.includes(sourceScreen)) {
+          errors.push(`Routing model references non-existent screen: "${sourceScreen}"`);
         }
-        if (routes.false && !screenIds.includes(routes.false)) {
-          errors.push(`Routing condition "${condition}": Screen "${routes.false}" not found`);
+        
+        // Check if target screens exist
+        if (Array.isArray(targetScreens)) {
+          targetScreens.forEach(targetScreen => {
+            if (!screenIds.includes(targetScreen)) {
+              errors.push(`Screen "${sourceScreen}" routes to non-existent screen: "${targetScreen}"`);
+            }
+          });
         }
       });
+      
+      // Check for disconnected screens (screens not mentioned in routing_model)
+      const screensInRouting = new Set(Object.keys(flow.routing_model));
+      const screensWithRouting = new Set();
+      
+      // Add all target screens to the set
+      Object.values(flow.routing_model).forEach(targets => {
+        if (Array.isArray(targets)) {
+          targets.forEach(target => screensWithRouting.add(target));
+        }
+      });
+      
+      // Find screens that have navigation actions but aren't in routing_model
+      flow.screens.forEach(screen => {
+        const hasNavigation = screen.layout?.children?.some(component => 
+          component.type === "Footer" && 
+          component["on-click-action"] && 
+          component["on-click-action"].name === "navigate"
+        );
+        
+        if (hasNavigation && !screensInRouting.has(screen.id)) {
+          errors.push(`Screen "${screen.id}" has navigation actions but is missing from routing_model`);
+        }
+      });
+      
+      // Find disconnected screens (not in routing_model and not targeted by any screen)
+      const connectedScreens = new Set([...screensInRouting, ...screensWithRouting]);
+      const disconnectedScreens = screenIds.filter(id => !connectedScreens.has(id));
+      
+      if (disconnectedScreens.length > 0) {
+        errors.push(`Following screens are not connected with the rest of the screens: [${disconnectedScreens.join(', ')}]. All screens should be connected.`);
+      }
     }
   }
 
