@@ -10,12 +10,14 @@ const path = require('path');
 const chalk = require('chalk');
 const { createFlow } = require('../index');
 const Validator = require('../src/core/Validator');
+const DynamicFlowBuilder = require('../src/core/DynamicFlowBuilder');
 
 class OptimizedBuilder {
   constructor() {
     this.outputDir = './output';
     this.versionsDir = './output/versions';
     this.verbose = true;
+    this.buildMode = 'static'; // 'static' or 'dynamic'
   }
 
   log(message, type = 'info') {
@@ -42,7 +44,7 @@ class OptimizedBuilder {
 
       // Build the flow
       this.log('Creating WhatsApp flow', 'info');
-      const flow = this.createFlow();
+      const flow = this.buildMode === 'dynamic' ? this.createDynamicFlow() : this.createFlow();
       if (!flow) {
         throw new Error('Failed to create flow');
       }
@@ -129,6 +131,67 @@ class OptimizedBuilder {
     return flow;
   }
 
+  createDynamicFlow() {
+    this.log('Creating dynamic WhatsApp flow', 'info');
+    
+    const flow = DynamicFlowBuilder.create('dynamic-services', {
+      version: '7.0',
+      dataApiVersion: '3.0'
+    });
+
+    // Add welcome screen with dynamic data
+    flow.screen('WELCOME', 'Welcome to Services', {
+      userName: '{{user.name}}',
+      serviceType: '{{context.service}}',
+      timestamp: new Date().toISOString()
+    });
+
+    // Add components with dynamic content
+    flow.text('Hello {{user.name}}! 👋', 'TextHeading')
+      .text('Select a service for {{context.service}}:', 'TextBody')
+      .input('service', 'Choose Service', 'dropdown', {
+        dataSource: [
+          { id: 'pension', title: 'Pension Services' },
+          { id: 'aadhaar', title: 'Aadhaar Services' },
+          { id: 'pan', title: 'PAN Card Services' }
+        ],
+        required: true
+      })
+      .footer('Continue', 'navigate', { next: 'SERVICE_DETAILS' });
+
+    // Add service details screen with conditional content
+    flow.screen('SERVICE_DETAILS', 'Service Details', {
+      selectedService: '{{form.service}}',
+      processingTime: '{{data.services[form.service].processingTime}}',
+      documents: '{{data.services[form.service].documents}}'
+    });
+
+    flow.text('Service: {{form.service}}', 'TextHeading')
+      .text('Processing Time: {{data.services[form.service].processingTime}} days', 'TextBody')
+      .text('Required Documents:', 'TextSubheading')
+      .text('{{#each data.services[form.service].documents}}• {{this}}{{/each}}', 'TextBody')
+      .footer('Proceed', 'navigate', { next: 'CONFIRMATION' });
+
+    // Add confirmation screen
+    flow.screen('CONFIRMATION', 'Confirm Your Request', {
+      confirmation: '{{user.phone}}',
+      serviceId: '{{form.service}}'
+    }, { terminal: true });
+
+    flow.text('Please confirm your service request', 'TextHeading')
+      .text('Service: {{form.service}}', 'TextBody')
+      .text('Confirmation will be sent to: {{user.phone}}', 'TextBody')
+      .footer('Confirm Request', 'complete');
+
+    // Don't set routing here - let the build process handle it automatically
+    // flow.routing({
+    //   WELCOME: ['SERVICE_DETAILS'],
+    //   SERVICE_DETAILS: ['CONFIRMATION']
+    // });
+
+    return flow;
+  }
+
   async saveValidatedFlow(builtFlow) {
     this.log('Saving validated flow', 'info');
     
@@ -142,7 +205,7 @@ class OptimizedBuilder {
     }
     
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const baseFilename = `services-flow`;
+    const baseFilename = this.buildMode === 'dynamic' ? 'dynamic-services-flow' : 'services-flow';
     
     // Save main flow file (clean, without metadata)
     const mainFile = path.join(this.outputDir, `${baseFilename}.json`);
@@ -311,6 +374,12 @@ class OptimizedBuilder {
 if (require.main === module) {
   const args = process.argv.slice(2);
   const builder = new OptimizedBuilder();
+
+  // Check for dynamic mode flag
+  if (args.includes('--dynamic')) {
+    builder.buildMode = 'dynamic';
+    builder.log('Dynamic flow mode enabled', 'info');
+  }
 
   // Check if validating existing file
   if (args.includes('--validate') && args[1] && args[1] !== '--validate') {

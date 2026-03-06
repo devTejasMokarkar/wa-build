@@ -52,11 +52,20 @@ class FlowJSONBuilder {
     const processed = {};
     
     for (const [key, value] of Object.entries(data)) {
-      processed[key] = {
-        type: this.inferType(value),
-        __example__: this.generateExample(value),
-        ...value
-      };
+      // For dynamic data binding, don't spread string values
+      if (typeof value === 'string' && value.includes('{{')) {
+        processed[key] = {
+          type: 'string',
+          __example__: value,
+          value: value
+        };
+      } else {
+        processed[key] = {
+          type: this.inferType(value),
+          __example__: this.generateExample(value),
+          ...value
+        };
+      }
     }
     
     return processed;
@@ -323,12 +332,15 @@ class FlowJSONBuilder {
    * Build the flow JSON
    */
   build() {
-    return ErrorHandler.wrap(() => {
+    try {
       // Validate flow structure
       this.validate();
       
       return JSON.parse(JSON.stringify(this.flow));
-    }, { context: 'FlowJSONBuilder.build' });
+    } catch (error) {
+      ErrorHandler.handle(error, { context: 'FlowJSONBuilder.build' });
+      throw error;
+    }
   }
 
   /**

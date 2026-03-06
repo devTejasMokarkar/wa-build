@@ -4,6 +4,7 @@
   "main": "index.js",
   "scripts": {
     "build": "node compiler/build-optimized.js",
+    "build:dynamic": "node compiler/build-optimized.js --dynamic",
     "validate": "node compiler/build-optimized.js --validate",
     "test": "jest",
     "dev": "node compiler/dev.js",
