@@ -3,10 +3,10 @@
   "version": "2.0.0",
   "main": "index.js",
   "scripts": {
-    "build": "node compiler/build.js",
-    "validate": "node compiler/validate.js",
-    "dev": "node compiler/dev.js",
-    "test": "jest"
+    "build": "node compiler/build-optimized.js",
+    "validate": "node compiler/build-optimized.js --validate",
+    "test": "jest",
+    "dev": "node compiler/dev.js"
   },
   "keywords": [
     "whatsapp",

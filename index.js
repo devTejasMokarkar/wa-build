@@ -70,6 +70,26 @@ try {
     }
   };
 
+  Flow.prototype.textBody = function(content) {
+    try {
+      const component = new TextBody(content);
+      return this.add(component.build());
+    } catch (error) {
+      ErrorHandler.handle(error, { method: 'Flow.prototype.textBody', content });
+      throw error;
+    }
+  };
+
+  Flow.prototype.footer = function(label, action = "complete", next = null) {
+    try {
+      const component = new Footer(label, action, next);
+      return this.add(component.build());
+    } catch (error) {
+      ErrorHandler.handle(error, { method: 'Flow.prototype.footer', label, action, next });
+      throw error;
+    }
+  };
+
   // Export main classes
   module.exports = {
     // Core classes

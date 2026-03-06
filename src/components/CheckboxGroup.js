@@ -17,12 +17,15 @@ class CheckboxGroup extends BaseComponent {
     // Validate data source structure
     this.validateDataSource(dataSource);
     
-    // Set checkbox-specific options
+    // Set checkbox-specific options (only use WhatsApp Flow supported properties)
     this.options.dataSource = dataSource;
-    this.options.minSelections = options.minSelections || 0;
-    this.options.maxSelections = options.maxSelections || dataSource.length;
-    this.options.defaultValue = options.defaultValue || [];
-    this.options.helperText = options.helperText || '';
+    
+    // Note: WhatsApp Flow doesn't officially support these properties in CheckboxGroup:
+    // - default-value
+    // - helper-text  
+    // - min-selections
+    // - max-selections
+    // These are being removed to match official schema
   }
 
   validateDataSource(dataSource) {
@@ -43,25 +46,14 @@ class CheckboxGroup extends BaseComponent {
     if (this.options.dataSource && this.options.dataSource.length > 20) {
       errors.push('CheckboxGroup cannot have more than 20 options');
     }
-    
-    if (this.options.minSelections > this.options.maxSelections) {
-      errors.push('minSelections cannot be greater than maxSelections');
-    }
-    
-    if (this.options.maxSelections > this.options.dataSource.length) {
-      errors.push('maxSelections cannot be greater than the number of available options');
-    }
 
     return errors;
   }
 
   getPropertyMap() {
+    // Only map to officially supported WhatsApp Flow properties
     return {
       ...super.getPropertyMap(),
-      minSelections: 'min-selections',
-      maxSelections: 'max-selections',
-      defaultValue: 'default-value',
-      helperText: 'helper-text',
       dataSource: 'data-source'
     };
   }

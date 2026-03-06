@@ -220,6 +220,11 @@ class Validator {
               }
             }
           }
+          // Note: Removed unsupported properties:
+          // - default-value
+          // - helper-text
+          // - min-selections  
+          // - max-selections
         }
       },
       EmbeddedLink: {

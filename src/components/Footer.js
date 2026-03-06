@@ -1,44 +1,35 @@
 class Footer {
+  constructor(label, action = "complete", nextScreen = null) {
+    this.label = label;
+    this.action = action;
+    this.nextScreen = nextScreen;
+  }
 
-constructor(label, action="complete", nextScreen=null){
+  build() {
+    const footer = {
+      type: "Footer",
+      label: this.label
+    };
 
-this.label = label;
-this.action = action;
-this.nextScreen = nextScreen;
+    // WhatsApp Flow specification compliant on-click-action
+    if (this.action === "navigate" && this.nextScreen) {
+      footer["on-click-action"] = {
+        name: "navigate",
+        next: {
+          type: "screen",
+          name: this.nextScreen
+        },
+        payload: {}
+      };
+    } else {
+      footer["on-click-action"] = {
+        name: "complete",
+        payload: {}
+      };
+    }
 
-}
-
-build(){
-
-const footer = {
-type: "Footer",
-label: this.label
-};
-
-if(this.action === "navigate" && this.nextScreen){
-
-footer["on-click-action"] = {
-name: "navigate",
-next: {
-type: "screen",
-name: this.nextScreen
-},
-payload: {}
-};
-
-}else{
-
-footer["on-click-action"] = {
-name: "complete",
-payload: {}
-};
-
-}
-
-return footer;
-
-}
-
+    return footer;
+  }
 }
 
 module.exports = Footer;

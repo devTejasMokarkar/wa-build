@@ -14,17 +14,8 @@ class Compiler {
   }
 
   compile(flow) {
-    const compiledFlow = {
-      ...flow,
-      compiled_at: new Date().toISOString(),
-      compiled_by: 'wa-flow-builder v2.0.0'
-    };
-
-    if (this.options.minify) {
-      return this.minify(compiledFlow);
-    }
-
-    return compiledFlow;
+    // Return clean flow without metadata for WhatsApp Flow compliance
+    return flow;
   }
 
   minify(flow) {
