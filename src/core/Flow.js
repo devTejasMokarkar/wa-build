@@ -1,77 +1,130 @@
 const VERSION = process.env.WA_FLOW_VERSION || "7.3";
+const { ValidationError, ComponentError, ScreenError, ErrorHandler } = require('./ErrorHandler');
 const Validator = require('./Validator');
 const Compiler = require('./Compiler');
 
 class Flow {
   constructor(name, options = {}) {
-    this.name = name;
-    this.version = options.version || "1.0.0";
-    this.screens = [];
-    this.routingModel = null;
-    this.dataApiVersion = options.dataApiVersion || "3.0";
-    this.validator = new Validator();
-    this.compiler = new Compiler();
-    
-    this.flow = {
-      version: VERSION,
-      data_api_version: this.dataApiVersion,
-      screens: []
-    };
+    try {
+      if (!name || typeof name !== 'string') {
+        throw new ValidationError('Flow name is required and must be a string', 'name', name);
+      }
+      
+      if (name.trim().length === 0) {
+        throw new ValidationError('Flow name cannot be empty', 'name', name);
+      }
+      
+      this.name = name.trim();
+      this.version = options.version || "1.0.0";
+      this.screens = [];
+      this.routingModel = null;
+      this.dataApiVersion = options.dataApiVersion || "3.0";
+      
+      try {
+        this.validator = new Validator();
+        this.compiler = new Compiler();
+      } catch (error) {
+        throw new Error(`Failed to initialize core components: ${error.message}`);
+      }
+      
+      this.flow = {
+        version: VERSION,
+        data_api_version: this.dataApiVersion,
+        screens: []
+      };
 
-    this.currentScreen = null;
-    this.currentForm = null;
-    this.currentContainer = null;
+      this.currentScreen = null;
+      this.currentForm = null;
+      this.currentContainer = null;
+    } catch (error) {
+      ErrorHandler.handle(error, { method: 'Flow.constructor', name, options });
+      throw error;
+    }
   }
 
   screen(id, title, terminal = false) {
-    if (!id) {
-      throw new Error('Screen ID is required');
-    }
-    
-    const screen = {
-      id,
-      title: title || id,
-      terminal,
-      layout: {
-        type: "SingleColumnLayout",
-        children: []
+    try {
+      if (!id || typeof id !== 'string') {
+        throw new ValidationError('Screen ID is required and must be a string', 'id', id);
       }
-    };
+      
+      if (id.trim().length === 0) {
+        throw new ValidationError('Screen ID cannot be empty', 'id', id);
+      }
+      
+      if (this.flow.screens.some(screen => screen.id === id.trim())) {
+        throw new ScreenError(`Screen with ID '${id.trim()}' already exists`, id);
+      }
+      
+      const screenId = id.trim();
+      const screenTitle = typeof title === 'string' ? title.trim() : screenId;
+      
+      const screen = {
+        id: screenId,
+        title: screenTitle,
+        terminal: Boolean(terminal),
+        layout: {
+          type: "SingleColumnLayout",
+          children: []
+        }
+      };
 
-    this.flow.screens.push(screen);
-    this.currentScreen = screen;
-    this.currentContainer = screen.layout.children;
+      this.flow.screens.push(screen);
+      this.currentScreen = screen;
+      this.currentContainer = screen.layout.children;
 
-    return this;
+      return this;
+    } catch (error) {
+      ErrorHandler.handle(error, { method: 'Flow.screen', id, title, terminal });
+      throw error;
+    }
   }
 
   routing(model) {
-    if (!model || typeof model !== 'object') {
-      throw new Error('Routing model must be a valid object');
+    try {
+      if (!model || typeof model !== 'object') {
+        throw new ValidationError('Routing model must be a valid object', 'routing', model);
+      }
+      
+      if (Array.isArray(model)) {
+        throw new ValidationError('Routing model must be an object, not an array', 'routing', model);
+      }
+      
+      this.flow.routing_model = model;
+      this.routingModel = model;
+      return this;
+    } catch (error) {
+      ErrorHandler.handle(error, { method: 'Flow.routing', model });
+      throw error;
     }
-    
-    this.flow.routing_model = model;
-    this.routingModel = model;
-    return this;
   }
 
   add(component) {
-    if (!this.currentContainer) {
-      throw new Error("No container available. Start with screen() or form()");
-    }
+    try {
+      if (!this.currentContainer) {
+        throw new ScreenError("No container available. Start with screen() or form()", this.currentScreen?.id);
+      }
 
-    if (!component || typeof component !== 'object') {
-      throw new Error("Component must be a valid object");
-    }
+      if (!component || typeof component !== 'object') {
+        throw new ComponentError("Component must be a valid object", 'unknown', 'unknown');
+      }
+      
+      if (!component.type) {
+        throw new ComponentError("Component must have a type property", 'unknown', 'unknown');
+      }
 
-    // Check EmbeddedLink limit
-    const embeddedLinkCount = this.currentContainer.filter(c => c.type === 'EmbeddedLink').length;
-    if (component.type === 'EmbeddedLink' && embeddedLinkCount >= 3) {
-      throw new Error(`Screen ${this.currentScreen.id}: Maximum EmbeddedLink limit (3) reached`);
-    }
+      // Check EmbeddedLink limit
+      const embeddedLinkCount = this.currentContainer.filter(c => c.type === 'EmbeddedLink').length;
+      if (component.type === 'EmbeddedLink' && embeddedLinkCount >= 3) {
+        throw new ComponentError(`Maximum EmbeddedLink limit (3) reached`, 'EmbeddedLink', this.currentScreen?.id);
+      }
 
-    this.currentContainer.push(component);
-    return this;
+      this.currentContainer.push(component);
+      return this;
+    } catch (error) {
+      ErrorHandler.handle(error, { method: 'Flow.add', component, screenId: this.currentScreen?.id });
+      throw error;
+    }
   }
 
   form(name, initValues = {}) {
@@ -102,9 +155,18 @@ class Flow {
   }
 
   textInput(name, label, required = true, inputType = "text") {
-    const TextInput = require("../components/TextInput");
-    const component = new TextInput(name, label, required, inputType);
-    return this.add(component.build());
+    try {
+      if (!name || typeof name !== 'string') {
+        throw new ValidationError('Text input name is required and must be a string', 'name', name);
+      }
+      
+      const TextInput = require("../components/TextInput");
+      const component = new TextInput(name, label, required, inputType);
+      return this.add(component.build());
+    } catch (error) {
+      ErrorHandler.handle(error, { method: 'Flow.textInput', name, label, required, inputType });
+      throw error;
+    }
   }
 
   numberInput(name, label) {
@@ -124,21 +186,60 @@ class Flow {
   }
 
   dropdown(name, label, dataSource) {
-    const Dropdown = require("../components/Dropdown");
-    const component = new Dropdown(name, label, dataSource);
-    return this.add(component.build());
+    try {
+      if (!name || typeof name !== 'string') {
+        throw new ValidationError('Dropdown name is required and must be a string', 'name', name);
+      }
+      
+      if (!dataSource || !Array.isArray(dataSource)) {
+        throw new ValidationError('Dropdown data source must be an array', 'dataSource', dataSource);
+      }
+      
+      const Dropdown = require("../components/Dropdown");
+      const component = new Dropdown(name, label, dataSource);
+      return this.add(component.build());
+    } catch (error) {
+      ErrorHandler.handle(error, { method: 'Flow.dropdown', name, label, dataSource });
+      throw error;
+    }
   }
 
   checkboxGroup(name, label, dataSource) {
-    const CheckboxGroup = require("../components/CheckboxGroup");
-    const component = new CheckboxGroup(name, label, dataSource);
-    return this.add(component.build());
+    try {
+      if (!name || typeof name !== 'string') {
+        throw new ValidationError('Checkbox group name is required and must be a string', 'name', name);
+      }
+      
+      if (!dataSource || !Array.isArray(dataSource)) {
+        throw new ValidationError('Checkbox group data source must be an array', 'dataSource', dataSource);
+      }
+      
+      const CheckboxGroup = require("../components/CheckboxGroup");
+      const component = new CheckboxGroup(name, label, dataSource);
+      return this.add(component.build());
+    } catch (error) {
+      ErrorHandler.handle(error, { method: 'Flow.checkboxGroup', name, label, dataSource });
+      throw error;
+    }
   }
 
   embeddedLink(text, action, options = {}) {
-    const EmbeddedLink = require("../components/EmbeddedLink");
-    const component = new EmbeddedLink(text, action, options);
-    return this.add(component.build());
+    try {
+      if (!text || typeof text !== 'string') {
+        throw new ValidationError('Embedded link text is required and must be a string', 'text', text);
+      }
+      
+      if (!action) {
+        throw new ValidationError('Embedded link action is required', 'action', action);
+      }
+      
+      const EmbeddedLink = require("../components/EmbeddedLink");
+      const component = new EmbeddedLink(text, action, options);
+      return this.add(component.build());
+    } catch (error) {
+      ErrorHandler.handle(error, { method: 'Flow.embeddedLink', text, action, options });
+      throw error;
+    }
   }
 
   footer(label, action = "complete", next = null) {
@@ -166,31 +267,61 @@ class Flow {
   }
 
   validate() {
-    const errors = this.validator.validateFlow(this.flow);
-    if (errors.length > 0) {
-      throw new Error(`Validation errors: ${errors.join(', ')}`);
+    try {
+      if (!this.validator) {
+        throw new Error('Validator not initialized');
+      }
+      
+      const errors = this.validator.validateFlow(this.flow);
+      if (errors.length > 0) {
+        throw new ValidationError(`Flow validation failed: ${errors.join(', ')}`);
+      }
+      return this;
+    } catch (error) {
+      ErrorHandler.handle(error, { method: 'Flow.validate', flowName: this.name });
+      throw error;
     }
-    return this;
   }
 
   build() {
-    if (this.flow.routing_model && Object.keys(this.flow.routing_model).length === 0) {
-      delete this.flow.routing_model;
-    }
+    try {
+      if (!this.compiler) {
+        throw new Error('Compiler not initialized');
+      }
+      
+      if (this.flow.routing_model && Object.keys(this.flow.routing_model).length === 0) {
+        delete this.flow.routing_model;
+      }
 
-    return this.compiler.compile(this.flow);
+      return this.compiler.compile(this.flow);
+    } catch (error) {
+      ErrorHandler.handle(error, { method: 'Flow.build', flowName: this.name });
+      throw error;
+    }
   }
 
   export(format = 'json') {
-    const builtFlow = this.build();
-    
-    switch (format) {
-      case 'json':
-        return JSON.stringify(builtFlow, null, 2);
-      case 'minified':
-        return JSON.stringify(builtFlow);
-      default:
-        return builtFlow;
+    try {
+      const validFormats = ['json', 'minified', 'object'];
+      if (!validFormats.includes(format)) {
+        throw new ValidationError(`Invalid export format: ${format}. Valid formats: ${validFormats.join(', ')}`, 'format', format);
+      }
+      
+      const builtFlow = this.build();
+      
+      switch (format) {
+        case 'json':
+          return JSON.stringify(builtFlow, null, 2);
+        case 'minified':
+          return JSON.stringify(builtFlow);
+        case 'object':
+          return builtFlow;
+        default:
+          return builtFlow;
+      }
+    } catch (error) {
+      ErrorHandler.handle(error, { method: 'Flow.export', format, flowName: this.name });
+      throw error;
     }
   }
 }

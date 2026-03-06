@@ -1,39 +1,75 @@
-class CheckboxGroup {
+const BaseComponent = require('../core/BaseComponent');
+const { ComponentError } = require('../core/ErrorHandler');
 
-constructor(name,label,dataSource,options={}){
-if (!name) throw new Error('CheckboxGroup name is required');
-if (!label) throw new Error('CheckboxGroup label is required');
-if (!dataSource || !Array.isArray(dataSource)) {
-throw new Error('CheckboxGroup dataSource must be a non-empty array');
-}
+class CheckboxGroup extends BaseComponent {
+  constructor(name, label, dataSource, options = {}) {
+    super('CheckboxGroup', name, label, options.required || false, options);
+    
+    // Validate data source
+    if (!dataSource || !Array.isArray(dataSource) || dataSource.length === 0) {
+      throw new ComponentError(
+        'CheckboxGroup requires a non-empty data source array',
+        'CheckboxGroup',
+        name
+      );
+    }
 
-this.name = name;
-this.label = label;
-this.dataSource = dataSource;
-this.required = options.required || false;
-this.minSelections = options.minSelections || 0;
-this.maxSelections = options.maxSelections || dataSource.length;
-this.defaultValue = options.defaultValue || [];
-this.helperText = options.helperText || '';
-}
+    // Validate data source structure
+    this.validateDataSource(dataSource);
+    
+    // Set checkbox-specific options
+    this.options.dataSource = dataSource;
+    this.options.minSelections = options.minSelections || 0;
+    this.options.maxSelections = options.maxSelections || dataSource.length;
+    this.options.defaultValue = options.defaultValue || [];
+    this.options.helperText = options.helperText || '';
+  }
 
-build(){
-const component = {
-type:"CheckboxGroup",
-name:this.name,
-label:this.label,
-"data-source":this.dataSource,
-required:this.required
-};
+  validateDataSource(dataSource) {
+    for (const item of dataSource) {
+      if (!item.id || !item.title) {
+        throw new ComponentError(
+          'Each data source item must have id and title properties',
+          'CheckboxGroup',
+          this.name
+        );
+      }
+    }
+  }
 
-if (this.minSelections > 0) component["min-selections"] = this.minSelections;
-if (this.maxSelections < this.dataSource.length) component["max-selections"] = this.maxSelections;
-if (this.defaultValue.length > 0) component["default-value"] = this.defaultValue;
-if (this.helperText) component["helper-text"] = this.helperText;
+  validateComponent() {
+    const errors = [];
+    
+    if (this.options.dataSource && this.options.dataSource.length > 20) {
+      errors.push('CheckboxGroup cannot have more than 20 options');
+    }
+    
+    if (this.options.minSelections > this.options.maxSelections) {
+      errors.push('minSelections cannot be greater than maxSelections');
+    }
+    
+    if (this.options.maxSelections > this.options.dataSource.length) {
+      errors.push('maxSelections cannot be greater than the number of available options');
+    }
 
-return component;
-}
+    return errors;
+  }
 
+  getPropertyMap() {
+    return {
+      ...super.getPropertyMap(),
+      minSelections: 'min-selections',
+      maxSelections: 'max-selections',
+      defaultValue: 'default-value',
+      helperText: 'helper-text',
+      dataSource: 'data-source'
+    };
+  }
+
+  // Static factory method
+  static create(name, label, dataSource, options = {}) {
+    return new CheckboxGroup(name, label, dataSource, options);
+  }
 }
 
 module.exports = CheckboxGroup;
