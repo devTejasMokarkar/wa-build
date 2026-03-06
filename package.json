@@ -6,7 +6,10 @@
     "build": "node compiler/build-optimized.js",
     "validate": "node compiler/build-optimized.js --validate",
     "test": "jest",
-    "dev": "node compiler/dev.js"
+    "dev": "node compiler/dev.js",
+    "preview": "node compiler/preview.js",
+    "preview:interactive": "node compiler/preview.js --interactive --open",
+    "preview:debug": "node compiler/preview.js --interactive --debug --open"
   },
   "keywords": [
     "whatsapp",
