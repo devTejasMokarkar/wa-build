@@ -48,26 +48,17 @@ class DevServer {
     try {
       console.log(chalk.blue('🎨 Generating flow preview...'));
       
-      // Find the latest flow file by modification time, excluding symlinks
-      const flowFiles = fs.readdirSync('./output')
-        .filter(file => file.endsWith('.json') && !file.includes('minified') && file !== 'latest-flow.json')
-        .map(file => ({
-          name: file,
-          path: path.join('./output', file),
-          mtime: fs.statSync(path.join('./output', file)).mtime
-        }))
-        .sort((a, b) => b.mtime - a.mtime);
-
-      if (flowFiles.length === 0) {
-        console.log(chalk.yellow('⚠️  No flow files found for preview'));
+      // Use the main flow file (services-flow.json)
+      const flowFile = path.join('./output', 'services-flow.json');
+      
+      if (!fs.existsSync(flowFile)) {
+        console.log(chalk.yellow('⚠️  No flow file found for preview'));
         return;
       }
 
-      const latestFlow = flowFiles[0];
-      console.log(chalk.cyan(`📁 Using flow file: ${latestFlow.path}`));
-      console.log(chalk.cyan(`📅 Modified: ${latestFlow.mtime.toISOString()}`));
+      console.log(chalk.cyan(`📁 Using flow file: ${flowFile}`));
       
-      const flowData = JSON.parse(fs.readFileSync(latestFlow.path, 'utf8'));
+      const flowData = JSON.parse(fs.readFileSync(flowFile, 'utf8'));
       
       // Generate interactive preview
       const previewResult = this.previewGenerator.generatePreview(flowData, {

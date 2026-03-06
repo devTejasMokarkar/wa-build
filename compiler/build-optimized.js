@@ -128,23 +128,27 @@ class OptimizedBuilder {
   async saveValidatedFlow(builtFlow) {
     this.log('Saving validated flow...', 'info');
     
+    // Clean up old flow files (keep only latest)
+    this.cleanupOldFlows();
+    
+    // Add required routing_model for data_api_version 3.0 before validation
+    if (builtFlow.data_api_version === "3.0" && !builtFlow.routing_model) {
+      builtFlow.routing_model = {}; // Empty routing model for compliance
+      this.log('Added empty routing_model for data_api_version 3.0 compliance', 'info');
+    }
+    
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const baseFilename = `services-flow-${timestamp}`;
+    const baseFilename = `services-flow`;
     
     // Save main flow file (clean, without metadata)
     const mainFile = path.join(this.outputDir, `${baseFilename}.json`);
     fs.writeFileSync(mainFile, JSON.stringify(builtFlow, null, 2));
     this.log(`✓ Flow saved to: ${mainFile}`, 'success');
 
-    // Save versioned copy
-    const versionFile = path.join(this.versionsDir, `${baseFilename}.json`);
-    fs.writeFileSync(versionFile, JSON.stringify(builtFlow, null, 2));
-    this.log(`📦 Version saved: ${versionFile}`, 'success');
-
     // Create minified version
     const minifiedFile = path.join(this.outputDir, `${baseFilename}-minified.json`);
     fs.writeFileSync(minifiedFile, JSON.stringify(builtFlow));
-    this.log(`📄 Minified saved: ${minifiedFile}`, 'success');
+    this.log(`� Minified saved: ${minifiedFile}`, 'success');
 
     // Update latest symlink
     const latestFile = path.join(this.outputDir, 'latest-flow.json');
@@ -157,10 +161,69 @@ class OptimizedBuilder {
     }
     try {
       fs.symlinkSync(mainFile, latestFile);
-      this.log(`🔗 Latest symlink: ${latestFile}`, 'success');
+      this.log(`� Latest symlink: ${latestFile}`, 'success');
     } catch (error) {
       // Ignore symlink creation errors
       this.log(`⚠️  Could not create latest symlink: ${error.message}`, 'warning');
+    }
+  }
+
+  cleanupOldFlows() {
+    try {
+      const files = fs.readdirSync(this.outputDir);
+      const flowFiles = files.filter(file => 
+        file.startsWith('services-flow-') && 
+        file.endsWith('.json') && 
+        !file.includes('minified')
+      );
+
+      // Keep only the most recent flow file
+      if (flowFiles.length > 1) {
+        // Sort by modification time
+        const filesWithStats = flowFiles.map(file => ({
+          name: file,
+          path: path.join(this.outputDir, file),
+          mtime: fs.statSync(path.join(this.outputDir, file)).mtime
+        })).sort((a, b) => b.mtime - a.mtime);
+
+        // Remove all but the latest
+        const filesToRemove = filesWithStats.slice(1);
+        filesToRemove.forEach(({ name, path }) => {
+          try {
+            fs.unlinkSync(path);
+            this.log(`🗑️  Removed old flow: ${name}`, 'info');
+          } catch (error) {
+            this.log(`⚠️  Could not remove ${name}: ${error.message}`, 'warning');
+          }
+        });
+      }
+
+      // Clean up old minified files too
+      const minifiedFiles = files.filter(file => 
+        file.startsWith('services-flow-') && 
+        file.endsWith('-minified.json')
+      );
+
+      if (minifiedFiles.length > 1) {
+        const minifiedWithStats = minifiedFiles.map(file => ({
+          name: file,
+          path: path.join(this.outputDir, file),
+          mtime: fs.statSync(path.join(this.outputDir, file)).mtime
+        })).sort((a, b) => b.mtime - a.mtime);
+
+        const minifiedToRemove = minifiedWithStats.slice(1);
+        minifiedToRemove.forEach(({ name, path }) => {
+          try {
+            fs.unlinkSync(path);
+            this.log(`🗑️  Removed old minified: ${name}`, 'info');
+          } catch (error) {
+            this.log(`⚠️  Could not remove ${name}: ${error.message}`, 'warning');
+          }
+        });
+      }
+
+    } catch (error) {
+      this.log(`⚠️  Cleanup error: ${error.message}`, 'warning');
     }
   }
 
