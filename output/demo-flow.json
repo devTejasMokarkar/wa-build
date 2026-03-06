@@ -1,0 +1,101 @@
+{
+  "version": "7.3",
+  "data_api_version": "3.0",
+  "screens": [
+    {
+      "id": "LOGIN",
+      "title": "Login",
+      "terminal": true,
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextInput",
+            "name": "username",
+            "label": "Username",
+            "required": true,
+            "input-type": "text"
+          },
+          {
+            "type": "TextInput",
+            "name": "password",
+            "label": "Password",
+            "required": true,
+            "input-type": "password"
+          },
+          {
+            "type": "Footer",
+            "label": "Login",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "DASHBOARD",
+      "title": "Dashboard",
+      "terminal": false,
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextInput",
+            "name": "search",
+            "label": "Search...",
+            "required": false,
+            "input-type": "text"
+          },
+          {
+            "type": "Dropdown",
+            "name": "category",
+            "label": "Category",
+            "data-source": [
+              {
+                "id": "all",
+                "title": "All Categories"
+              },
+              {
+                "id": "documents",
+                "title": "Documents"
+              },
+              {
+                "id": "payments",
+                "title": "Payments"
+              },
+              {
+                "id": "services",
+                "title": "Services"
+              }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "navigate",
+              "next": {
+                "type": "screen",
+                "name": "RESULTS"
+              },
+              "payload": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "RESULTS",
+      "title": "Search Results",
+      "terminal": true,
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": []
+      }
+    }
+  ],
+  "compiled_at": "2026-03-06T04:40:14.644Z",
+  "compiled_by": "wa-flow-builder v2.0.0"
+}
