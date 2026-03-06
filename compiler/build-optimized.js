@@ -15,29 +15,33 @@ class OptimizedBuilder {
   constructor() {
     this.outputDir = './output';
     this.versionsDir = './output/versions';
-    this.errors = [];
-    this.warnings = [];
+    this.verbose = true;
   }
 
   log(message, type = 'info') {
+    if (!this.verbose) return;
+    
     const colors = {
-      info: chalk.blue,
-      success: chalk.green,
-      warning: chalk.yellow,
-      error: chalk.red
+      info: '\x1b[36m',    // cyan
+      success: '\x1b[32m', // green
+      warning: '\x1b[33m', // yellow
+      error: '\x1b[31m'    // red
     };
     
-    console.log(colors[type](`🔧 ${message}`));
+    const reset = '\x1b[0m';
+    const color = colors[type] || colors.info;
+    console.log(`${color}[BUILD] ${message}${reset}`);
   }
 
   async build() {
-    this.log('Starting optimized flow build...', 'info');
+    this.log('Starting optimized flow build', 'info');
 
     try {
       // Ensure output directories exist
       this.ensureDirectories();
 
       // Build the flow
+      this.log('Creating WhatsApp flow', 'info');
       const flow = this.createFlow();
       if (!flow) {
         throw new Error('Failed to create flow');
@@ -80,27 +84,27 @@ class OptimizedBuilder {
       const validation = validator.validateFlow(builtFlow);
       if (validation.length > 0) {
         this.log('Flow validation failed:', 'error');
-        validation.forEach(error => this.log(`  ❌ ${error}`, 'error'));
+        validation.forEach(error => this.log(`  ${error}`, 'error'));
         throw new Error(`Flow validation failed: ${validation.join(', ')}`);
       }
 
       // Save only valid flows
       await this.saveValidatedFlow(builtFlow);
-      
+
       // Show statistics
       this.showStatistics(builtFlow);
-      
-      this.log('✅ Flow built and validated successfully!', 'success');
+
+      this.log('Flow built and validated successfully', 'success');
       return builtFlow;
 
     } catch (error) {
       this.log(`Build failed: ${error.message}`, 'error');
-      process.exit(1);
+      throw error;
     }
   }
 
   createFlow() {
-    this.log('Creating WhatsApp flow...', 'info');
+    this.log('Creating WhatsApp flow', 'info');
     
     const flow = createFlow("SERVICES")
       .screen("SERVICES", { title: "Services Selection" })
@@ -126,7 +130,7 @@ class OptimizedBuilder {
   }
 
   async saveValidatedFlow(builtFlow) {
-    this.log('Saving validated flow...', 'info');
+    this.log('Saving validated flow', 'info');
     
     // Clean up old flow files (keep only latest)
     this.cleanupOldFlows();
@@ -143,12 +147,12 @@ class OptimizedBuilder {
     // Save main flow file (clean, without metadata)
     const mainFile = path.join(this.outputDir, `${baseFilename}.json`);
     fs.writeFileSync(mainFile, JSON.stringify(builtFlow, null, 2));
-    this.log(`✓ Flow saved to: ${mainFile}`, 'success');
+    this.log(`Flow saved to: ${mainFile}`, 'success');
 
     // Create minified version
     const minifiedFile = path.join(this.outputDir, `${baseFilename}-minified.json`);
     fs.writeFileSync(minifiedFile, JSON.stringify(builtFlow));
-    this.log(`� Minified saved: ${minifiedFile}`, 'success');
+    this.log(`Minified saved: ${minifiedFile}`, 'success');
 
     // Update latest symlink
     const latestFile = path.join(this.outputDir, 'latest-flow.json');
@@ -161,10 +165,10 @@ class OptimizedBuilder {
     }
     try {
       fs.symlinkSync(mainFile, latestFile);
-      this.log(`� Latest symlink: ${latestFile}`, 'success');
+      this.log(`Latest symlink: ${latestFile}`, 'success');
     } catch (error) {
       // Ignore symlink creation errors
-      this.log(`⚠️  Could not create latest symlink: ${error.message}`, 'warning');
+      this.log(`Could not create latest symlink: ${error.message}`, 'warning');
     }
   }
 

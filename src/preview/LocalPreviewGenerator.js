@@ -1,11 +1,23 @@
 const fs = require('fs');
 const path = require('path');
-const chalk = require('chalk');
 
 class LocalPreviewGenerator {
   constructor() {
     this.outputDir = './preview-output';
     this.templatesDir = './src/preview/templates';
+  }
+
+  log(message, type = 'info') {
+    const colors = {
+      info: '\x1b[36m',    // cyan
+      success: '\x1b[32m', // green
+      warning: '\x1b[33m', // yellow
+      error: '\x1b[31m'    // red
+    };
+    
+    const reset = '\x1b[0m';
+    const color = colors[type] || colors.info;
+    console.log(`${color}[PREVIEW] ${message}${reset}`);
   }
 
   generatePreview(flowJson, options = {}) {
@@ -17,7 +29,7 @@ class LocalPreviewGenerator {
       debug = false
     } = options;
 
-    this.log('🎨 Generating local flow preview...', 'info');
+    this.log('Generating local flow preview', 'info');
 
     // Create preview HTML
     const previewHtml = this.createPreviewHtml(flowJson, options);
@@ -27,8 +39,8 @@ class LocalPreviewGenerator {
     this.ensureDirectory();
     fs.writeFileSync(previewFile, previewHtml);
 
-    this.log(`✅ Preview generated: ${previewFile}`, 'success');
-    this.log(`🌐 Open in browser: file://${path.resolve(previewFile)}`, 'info');
+    this.log(`Preview generated: ${previewFile}`, 'success');
+    this.log(`Open in browser: file://${path.resolve(previewFile)}`, 'info');
     
     return {
       previewUrl: `file://${path.resolve(previewFile)}`,

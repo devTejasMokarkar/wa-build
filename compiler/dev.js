@@ -1,7 +1,6 @@
 const { createFlow } = require('../src/core/FlowBuilder');
 const OptimizedBuilder = require('./build-optimized');
 const LocalPreviewGenerator = require('../src/preview/LocalPreviewGenerator');
-const chalk = require('chalk');
 const fs = require('fs-extra');
 const path = require('path');
 
@@ -13,8 +12,21 @@ class DevServer {
     this.isWatching = false;
   }
 
+  log(message, type = 'info') {
+    const colors = {
+      info: '\x1b[36m',    // cyan
+      success: '\x1b[32m', // green
+      warning: '\x1b[33m', // yellow
+      error: '\x1b[31m'    // red
+    };
+    
+    const reset = '\x1b[0m';
+    const color = colors[type] || colors.info;
+    console.log(`${color}[DEV] ${message}${reset}`);
+  }
+
   async start() {
-    console.log(chalk.blue('🔧 Starting WhatsApp Flow Dev Server...'));
+    this.log('Starting WhatsApp Flow Dev Server', 'info');
     
     // Create example flow using optimized builder
     await this.createDemoFlow();
@@ -25,38 +37,38 @@ class DevServer {
     // Start file watching
     this.startWatching();
     
-    console.log(chalk.green('✅ Dev server started!'));
-    console.log(chalk.cyan('📁 Watching for changes in src/ directory'));
-    console.log(chalk.cyan('🔄 Auto-rebuild on file changes'));
-    console.log(chalk.cyan('🎨 Auto-preview on changes'));
+    this.log('Dev server started', 'success');
+    this.log('Watching for changes in src/ directory', 'info');
+    this.log('Auto-rebuild on file changes', 'info');
+    this.log('Auto-preview on changes', 'info');
   }
 
   async createDemoFlow() {
     try {
-      console.log(chalk.blue('📝 Creating demo flow with optimized builder...'));
+      this.log('Creating demo flow with optimized builder', 'info');
       
       // Use the optimized builder which handles routing_model automatically
       await this.optimizedBuilder.build();
       
-      console.log(chalk.green('📝 Demo flow created successfully'));
+      this.log('Demo flow created successfully', 'success');
     } catch (error) {
-      console.error(chalk.red('❌ Failed to create demo flow:'), error.message);
+      this.log(`Failed to create demo flow: ${error.message}`, 'error');
     }
   }
 
   async generatePreview() {
     try {
-      console.log(chalk.blue('🎨 Generating flow preview...'));
+      this.log('Generating flow preview', 'info');
       
       // Use the main flow file (services-flow.json)
       const flowFile = path.join('./output', 'services-flow.json');
       
       if (!fs.existsSync(flowFile)) {
-        console.log(chalk.yellow('⚠️  No flow file found for preview'));
+        this.log('No flow file found for preview', 'warning');
         return;
       }
 
-      console.log(chalk.cyan(`📁 Using flow file: ${flowFile}`));
+      this.log(`Using flow file: ${flowFile}`, 'info');
       
       const flowData = JSON.parse(fs.readFileSync(flowFile, 'utf8'));
       
@@ -66,15 +78,14 @@ class DevServer {
         debug: false
       });
 
-      console.log(chalk.green('✅ Preview generated!'));
-      console.log(chalk.cyan(`🌐 Preview URL: ${previewResult.previewUrl}`));
+      this.log('Preview generated', 'success');
+      this.log(`Preview URL: ${previewResult.previewUrl}`, 'info');
       
       // Auto-open browser
       this.openBrowser(previewResult.previewUrl);
       
     } catch (error) {
-      console.error(chalk.red('❌ Failed to generate preview:'), error.message);
-      console.error(chalk.red('Stack:'), error.stack);
+      this.log(`Failed to generate preview: ${error.message}`, 'error');
     }
   }
 
@@ -97,10 +108,10 @@ class DevServer {
 
     exec(command, (error) => {
       if (error) {
-        console.log(chalk.yellow(`⚠️  Could not open browser automatically: ${error.message}`));
-        console.log(chalk.blue(`Please open manually: ${url}`));
+        this.log(`Could not open browser automatically: ${error.message}`, 'warning');
+        this.log(`Please open manually: ${url}`, 'info');
       } else {
-        console.log(chalk.green('🌐 Opened preview in browser'));
+        this.log('Opened preview in browser', 'success');
       }
     });
   }
@@ -109,13 +120,13 @@ class DevServer {
     const watchDir = './src';
     
     if (!fs.existsSync(watchDir)) {
-      console.log(chalk.yellow('⚠️  src/ directory not found, skipping watch mode'));
+      this.log('src/ directory not found, skipping watch mode', 'warning');
       return;
     }
 
     fs.watch(watchDir, { recursive: true }, (eventType, filename) => {
       if (filename && (filename.endsWith('.js') || filename.endsWith('.json'))) {
-        console.log(chalk.yellow(`🔄 File changed: ${filename}`));
+        this.log(`File changed: ${filename}`, 'info');
         this.rebuildFlow();
       }
     });
@@ -125,18 +136,18 @@ class DevServer {
 
   async rebuildFlow() {
     try {
-      console.log(chalk.blue('🔨 Rebuilding flow...'));
+      this.log('Rebuilding flow', 'info');
       await this.createDemoFlow();
       await this.generatePreview();
-      console.log(chalk.green('✅ Flow rebuilt and preview updated'));
+      this.log('Flow rebuilt and preview updated', 'success');
     } catch (error) {
-      console.error(chalk.red('❌ Rebuild failed:'), error.message);
+      this.log(`Rebuild failed: ${error.message}`, 'error');
     }
   }
 
   stop() {
     this.isWatching = false;
-    console.log(chalk.yellow('🛑 Dev server stopped'));
+    this.log('Dev server stopped', 'warning');
   }
 }
 
